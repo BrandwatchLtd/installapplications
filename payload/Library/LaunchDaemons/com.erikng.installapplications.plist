@@ -11,7 +11,7 @@
 		<string>--jsonurl</string>
 		<string>https://adrastea.brandwatch.net/workstation.json</string>
 		<string>--headers</string>
-		<string>Basic aW5zdGFsbGFwcGFkbWluOkF4OVZ1UnY3S2FOdQ==</string>
+		<string>Basic ********</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
