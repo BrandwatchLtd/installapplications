@@ -51,12 +51,41 @@ import pwd
 import objc
 import requests
 import slack
-
-IASHOSTNAME = 'https://adrastea.brandwatch.net'
+import configparser
+CONFIG_PATH = '/Library/installapplications/ias.ini'
 #VPNUTIL = '/usr/local/bin/vpnutil'
 #VPNLABEL = 'VPN (IKEv2) Brandwatch'
-# END OF BW ADDITIONS
 
+
+class ConfigSectionMap:
+    def __init__(self, inipath):
+        self.my_config_parser = configparser.ConfigParser()
+        self.inipath = inipath
+        self.my_config_parser.read(self.inipath)
+
+    def config_map(self, section):
+        dict1 = {}
+        options = self.my_config_parser.options(section)
+        for option in options:
+            try:
+                dict1[option] = self.my_config_parser.get(section, option)
+                if dict1[option] == -1:
+                    print("skip: %s" % option)
+            except:
+                print("There is exception on %s!" % option)
+                dict1[option] = None
+        return dict1
+try:
+    # ini parser
+    configparse = ConfigSectionMap(CONFIG_PATH)
+    # Slack Hook
+    SLACK_URL = configparse.config_map("SLACK")['apihook']
+    # IAS webserver
+    IASHOSTNAME = configparse.config_map("WEB")['url']
+except Exception as e:
+    print(f"Could not load parameters from INI file r{e}")
+    sys.exit(1)
+# END OF BW ADDITIONS
 g_dry_run = False
 
 
@@ -105,12 +134,6 @@ def get_hardware_serial():
 CERTHOST = get_hardware_serial().lower()
 
 
-def invokecmd(cmd):
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdoutput, stderrdata = process.communicate()
-    return {'stdout': stdoutput, 'stderr': stderrdata}
-
-
 def validuser(user):
     if user is None or user == 'loginwindow' or user == '_mbsetupuser':
             #print("VPN: User not logged in, skipping")
@@ -118,6 +141,10 @@ def validuser(user):
     else:
         return True
 
+def invokecmd(cmd):
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdoutput, stderrdata = process.communicate()
+    return {'stdout': stdoutput, 'stderr': stderrdata}
 
 #def hostreachable():
 #    cmd = ['/usr/bin/nscurl',IASHOSTNAME]
@@ -189,17 +216,14 @@ def notify_slack(hostname, assigneduser, message):
     now = datetime.now()
     eventstamp = now.strftime("%d/%m/%Y %H:%M:%S")
     #email or slack notifciations on failure
-    slack_url = "https://hooks.slack.com/services/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"
-    #payload_obj = {"text":message_text,"link_names":1}
     message_payload = {"blocks": [
         {"type": "section","text": {"type": "mrkdwn","text": "*DEP Enrolment Event*"}},
         {"type": "section","text": {"type": "mrkdwn","text": "*Device Assigned User:*\n{}".format(assigneduser)}},
         {"type": "section","fields": [{"type": "mrkdwn","text": "*Device Hostname:*\n{}".format(hostname)},
 		{"type": "mrkdwn","text": "*Event Time:*\n{}".format(eventstamp)}]},
         {"type": "section","text": {"type": "mrkdwn","text": "*Notification:*\n{}".format(message)}}]}
-
     try:
-        requests.put(slack_url,data=json.dumps(message_payload))
+        requests.put(SLACK_URL,data=json.dumps(message_payload))
     
     except Exception as e:
         print(f"Posting to Slack Channel Failed: {e}")
