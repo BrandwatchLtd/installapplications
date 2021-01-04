@@ -43,6 +43,19 @@ sys.path.append('/Library/installapplications')
 # PEP8 can really be annoying at times.
 import gurl  # noqa
 
+#BW ADDITIONS
+from datetime import datetime
+from Foundation import NSBundle, NSString
+from time import sleep
+import pwd
+import objc
+import requests
+import slack
+
+IASHOSTNAME = 'https://adrastea.brandwatch.net'
+#VPNUTIL = '/usr/local/bin/vpnutil'
+#VPNLABEL = 'VPN (IKEv2) Brandwatch'
+# END OF BW ADDITIONS
 
 g_dry_run = False
 
@@ -69,6 +82,135 @@ def pkgregex(pkgpath):
         return pkgname
     except AttributeError as IndexError:
         return pkgpath
+
+#BW ADDITIONS 0
+
+IOKit_bundle = NSBundle.bundleWithIdentifier_('com.apple.framework.IOKit')
+
+functions = [("IOServiceGetMatchingService", b"II@"),
+             ("IOServiceMatching", b"@*"),
+             ("IORegistryEntryCreateCFProperty", b"@I@@I"),
+            ]
+
+objc.loadBundleFunctions(IOKit_bundle, globals(), functions)
+
+
+def io_key(keyname):
+    return IORegistryEntryCreateCFProperty(IOServiceGetMatchingService(0, IOServiceMatching("IOPlatformExpertDevice".encode("utf-8"))), NSString.stringWithString_(keyname), None, 0)
+
+
+def get_hardware_serial():
+    return io_key("IOPlatformSerialNumber")
+
+CERTHOST = get_hardware_serial().lower()
+
+
+def invokecmd(cmd):
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdoutput, stderrdata = process.communicate()
+    return {'stdout': stdoutput, 'stderr': stderrdata}
+
+
+def validuser(user):
+    if user is None or user == 'loginwindow' or user == '_mbsetupuser':
+            #print("VPN: User not logged in, skipping")
+            return False
+    else:
+        return True
+
+
+#def hostreachable():
+#    cmd = ['/usr/bin/nscurl',IASHOSTNAME]
+#    status = invokecmd(cmd)
+#    if b'error' in status['stderr']:
+#        return False
+#    return True
+
+
+#def vpnconnected():
+#    sleep(10)
+#    response = invokecmd([VPNUTIL,"status",VPNLABEL])
+#    
+#    if b'Connected' in response['stdout']:
+#        notify_slack(CERTHOST,'unknown',f"IAS: VPN connected")
+#        return True
+#    else:
+#        print("Connection failed will try again")
+#        notify_slack(CERTHOST,'unknown',f"IAS: VPN connection failed, will retry")
+#        #kill the process as its stuck connecting
+ #       invokecmd(['/usr/bin/killall', '-9', 'NEIKEv2Provider'])
+ #       return False
+
+
+#def validvpn(label):
+#    status = invokecmd([VPNUTIL, 'list'])
+#    if VPNLABEL.encode('utf8') in status['stdout']:
+#        return True
+#    return False
+
+
+#def vpnutilcheck():
+#    if os.path.isfile(VPNUTIL):
+#        return True
+#    else:
+#        return False
+
+
+#def launchvpn():
+#    if validvpn(VPNLABEL):
+#        user = getconsoleuser()
+#        notify_slack(CERTHOST,'unknown',f"IAS: VPN Config Valid")
+#        notify_slack(CERTHOST,'unknown',f"IAS: console user {user}")
+#        print("IAS: VPN config valid")
+#        cmd = [VPNUTIL, 'status', VPNLABEL]
+#        status = invokecmd(cmd)
+#        if b"Connected" not in status['stdout']:
+#            invokecmd([VPNUTIL,"start",VPNLABEL])
+#            while not vpnconnected():
+#                invokecmd([VPNUTIL,"start",VPNLABEL])
+#            else:
+#                notify_slack(CERTHOST,'unknown',f"IAS: VPN Connected")
+#                print("IAS: VPN is connected!")
+#                return True
+#        else:
+#            notify_slack(CERTHOST,'unknown',f"IAS: VPN config: {VPNLABEL} not found")
+#            print(f"IAS: {VPNLABEL} - Does Not exist!")
+#            return False
+#    else:
+        #print("IAS: VPN Label is wrong")
+#        return False
+#    return True
+
+def enable_ssh(hostname):
+    cmd = ['launchctl', 'bootstrap', 'system', '/System/Library/LaunchDaemons/ssh.plist']
+    invokecmd(cmd)
+
+def notify_slack(hostname, assigneduser, message):
+    now = datetime.now()
+    eventstamp = now.strftime("%d/%m/%Y %H:%M:%S")
+    #email or slack notifciations on failure
+    slack_url = "https://hooks.slack.com/services/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"
+    #payload_obj = {"text":message_text,"link_names":1}
+    message_payload = {"blocks": [
+        {"type": "section","text": {"type": "mrkdwn","text": "*DEP Enrolment Event*"}},
+        {"type": "section","text": {"type": "mrkdwn","text": "*Device Assigned User:*\n{}".format(assigneduser)}},
+        {"type": "section","fields": [{"type": "mrkdwn","text": "*Device Hostname:*\n{}".format(hostname)},
+		{"type": "mrkdwn","text": "*Event Time:*\n{}".format(eventstamp)}]},
+        {"type": "section","text": {"type": "mrkdwn","text": "*Notification:*\n{}".format(message)}}]}
+
+    try:
+        requests.put(slack_url,data=json.dumps(message_payload))
+    
+    except Exception as e:
+        print(f"Posting to Slack Channel Failed: {e}")
+
+#END OF BW ADDITIONS 0
+def checksyscert(hostname):
+    p1 = subprocess.Popen(["/usr/bin/security","find-identity"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p2 =  subprocess.Popen(["/usr/bin/grep",hostname], stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #stdoutput, stderrdata = p2.communicate()
+    output = p2.communicate()[0]
+    return p2.returncode
 
 
 def installpackage(packagepath):
@@ -172,6 +314,8 @@ def downloadfile(options):
         raise
 
     if connection.error is not None:
+        error = str(connection.error.localizedDescription())
+        notify_slack(CERTHOST, 'unknown', f"IAS: Connection error {error}")
         iaslog('Error: %s %s ' % (str(connection.error.code()),
                                   str(connection.error.localizedDescription()))
                )
@@ -294,6 +438,7 @@ def download_if_needed(item, stage, type, opts, depnotifystatus):
         while not hash == gethash(path):
             iaslog('Hash failed for %s - received: %s expected'
                    ': %s' % (name, gethash(path), hash))
+            notify_slack(CERTHOST, 'unknown', f"IAS: hash failed for {name}")
             downloadfile(item)
             failsleft -= 1
             if failsleft == 0:
@@ -518,13 +663,13 @@ def main():
             iaslog('Removing and redownloading bootstrap.json')
             os.remove(jsonpath)
 
-    # If the file doesn't exist, grab it and wait half a second to save.
+    notify_slack(CERTHOST, 'unknown', "IAS: starting download")
     while not os.path.isfile(jsonpath):
         iaslog('Starting download: %s' % (urllib.parse.unquote(
             json_data['url'])))
         downloadfile(json_data)
-        time.sleep(0.5)
-
+        sleep(0.5)
+    notify_slack(CERTHOST, 'unknown', f"IAS: using the following bootstrap: {json_data['url']}")
     # Load up file to grab all the items.
     iajson = json.loads(open(jsonpath).read())
 

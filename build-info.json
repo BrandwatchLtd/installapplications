@@ -6,9 +6,9 @@
     "ownership": "recommended",
     "postinstall_action": "none",
     "signing_info": {
-        "identity": "Mac Installer: Erik Gomez (XXXXXXXXXXX)",
+        "identity": "Developer ID Installer: Runtime Collective Ltd (DN43S694FP)",
         "timestamp": true
     },
     "suppress_bundle_relocation": true,
-    "version": "2.0"
+    "version": "2.1"
 }

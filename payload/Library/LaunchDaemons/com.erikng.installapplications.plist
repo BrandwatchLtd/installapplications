@@ -9,24 +9,9 @@
 		<string>/Library/installapplications/Python.framework/Versions/3.8/bin/python3</string>
 		<string>/Library/installapplications/installapplications.py</string>
 		<string>--jsonurl</string>
-		<string>https://domain.tld</string>
-		<!-- <string>--iapath</string> -->
-		<!-- <string>/Library/Application Support/installapplications</string> -->
-		<!-- <string>--laidentifier</string> -->
-		<!-- <string>com.erikng.installapplications</string> -->
-		<!-- <string>--ldidentifier</string> -->
-		<!-- <string>com.erikng.installapplications</string> -->
-		<!-- <string>--depnotify</string> -->
-		<!-- <string>DEPNotifySkipStatus</string> -->
-		<!-- <string>Command: WindowTitle: InstallApplications is Awesome!</string> -->
-		<!-- <string>Command: NotificationOn:</string> -->
-		<!-- <string>Command: Quit: Thanks for using InstallApplications and DEPNotify.</string> -->
-		<!-- <string>Command: WindowStyle: ActivateOnStep</string> -->
-		<!-- <string>DEPNotifyPath: /Applications/Utilities/DEPNotify.app</string> -->
-		<!-- <string>DEPNotifyArguments: -munki</string> -->
-		<!-- <string>DEPNotifyArguments: -munki -fullScreen</string> -->
-		<!-- <string>--reboot</string> -->
-		<!-- <string>--skip-validation</string> -->
+		<string>https://adrastea.brandwatch.net/workstation.json</string>
+		<string>--headers</string>
+		<string>Basic aW5zdGFsbGFwcGFkbWluOkF4OVZ1UnY3S2FOdQ==</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
